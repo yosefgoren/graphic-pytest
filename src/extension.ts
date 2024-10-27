@@ -26,21 +26,24 @@ export function activate(context: vscode.ExtensionContext) {
             panel.webview.html = data.replace('${webviewUri}', scriptUri.toString());
         });
 
-        // Function to scan for log files and return row/column names
-        const getMatrixData = (): { row: string, col: string }[] => {
-            const files = fs.readdirSync(vscode.workspace.rootPath || '.');
-            const pattern = /^([^-]+)-([^-]+)\.log$/;
-            const matrixData: { row: string, col: string }[] = [];
+        // Function to load test data from summary.json
+        const getMatrixData = () => {
+            const summaryPath = path.join(vscode.workspace.rootPath || '.', 'summary.json');
+            if (!fs.existsSync(summaryPath)) {
+                vscode.window.showErrorMessage("summary.json file not found in workspace.");
+                return [];
+            }
 
-            files.forEach(file => {
-                const match = file.match(pattern);
-                if (match) {
-                    const row = match[1];
-                    const col = match[2];
-                    matrixData.push({ row, col });
+            const summaryContent = fs.readFileSync(summaryPath, 'utf8');
+            const summaryData = JSON.parse(summaryContent);
+
+            const matrixData: { row: string, col: string, status: string }[] = [];
+            for (const row in summaryData) {
+                for (const col in summaryData[row]) {
+                    const status = summaryData[row][col];
+                    matrixData.push({ row, col, status });
                 }
-            });
-
+            }
             return matrixData;
         };
 
@@ -52,8 +55,12 @@ export function activate(context: vscode.ExtensionContext) {
                     panel.webview.postMessage({ command: 'insertCells', data: matrixData });
                 } else if (message.command === 'openFile') {
                     const filePath = path.join(vscode.workspace.rootPath || '.', `${message.file}.log`);
-                    const document = await vscode.workspace.openTextDocument(filePath);
-                    await vscode.window.showTextDocument(document);
+                    if (fs.existsSync(filePath)) {
+                        const document = await vscode.workspace.openTextDocument(filePath);
+                        await vscode.window.showTextDocument(document);
+                    } else {
+                        vscode.window.showWarningMessage(`Log file ${message.file}.log does not exist.`);
+                    }
                 }
             },
             undefined,

@@ -20,7 +20,7 @@ if (try_ctx == null) {
 const ctx = try_ctx as CanvasRenderingContext2D;
 const cellSize = 80;
 const circleRadius = 20;
-let matrixData: { row: string, col: string }[] = [];
+let matrixData: { row: string, col: string, status: string }[] = [];
 let rows: string[] = [];
 let cols: string[] = [];
 
@@ -41,11 +41,11 @@ function getCssConfigProperty(propertyName: string){
 }
 
 class ColorSettings {
-    public primaryStyle = getCssConfigProperty('activityBarBadge.background');
-    public secondaryStyle = getCssConfigProperty('editor.foreground');
-    public graphEdgeColor = getCssConfigProperty('editor.foreground');
-    public nodeSymbolsColor = getCssConfigProperty('editor.background');
-    public nodeTextColor = getCssConfigProperty('editor.foreground');
+    public planned = getCssConfigProperty('editor.foreground');
+    public passed = 'green';
+    public failed = 'red';
+    public skipped = 'yellow';
+    public text = getCssConfigProperty('activityBarBadge.background');
 }
 
 function updateSessionStatus() {
@@ -63,8 +63,8 @@ function drawMatrix() {
     // Draw row and column labels
     ctx.font = 'bolder 14px Arial';
     const colors = new ColorSettings();
-    ctx.fillStyle = colors.nodeTextColor;
-    ctx.strokeStyle = colors.primaryStyle;
+    ctx.fillStyle = colors.text;
+    ctx.strokeStyle = colors.planned;
     rows.forEach((row, rowIndex) => {
         ctx.fillText(row, 10, (rowIndex + 1) * cellSize);
     });
@@ -73,7 +73,7 @@ function drawMatrix() {
     });
 
     // Draw circles for cells
-    matrixData.forEach(({ row, col }) => {
+    matrixData.forEach(({ row, col, status}) => {
         const rowIndex = rows.indexOf(row);
         const colIndex = cols.indexOf(col);
         if (rowIndex !== -1 && colIndex !== -1) {
@@ -82,7 +82,7 @@ function drawMatrix() {
             ctx.beginPath();
             ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
             ctx.lineWidth = 2;
-            ctx.fillStyle = colors.secondaryStyle;
+            ctx.fillStyle = colors[status as keyof ColorSettings] || colors.planned;
             ctx.fill();
             ctx.stroke();
         }
