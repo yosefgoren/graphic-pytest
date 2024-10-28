@@ -46,6 +46,7 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                 }
             }
+            console.log("found matrix data as: ", matrixData);
             return matrixData;
         };
 

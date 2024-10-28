@@ -19,6 +19,7 @@ if (try_ctx == null) {
 }
 const ctx = try_ctx as CanvasRenderingContext2D;
 const cellSize = 80;
+const layerShiftSize = 10;
 const circleRadius = 20;
 let matrixData: { row: string, col: string, layer: string, status: string }[] = [];
 let rows: string[] = [];
@@ -48,6 +49,7 @@ class ColorSettings {
     public failed = 'red';
     public skipped = 'yellow';
     public text = getCssConfigProperty('activityBarBadge.background');
+    public rim = 'black';
 }
 
 function count(ls: boolean[]): number {
@@ -83,7 +85,7 @@ function drawMatrix() {
     ctx.font = 'bolder 14px Arial';
     const colors = new ColorSettings();
     ctx.fillStyle = colors.text;
-    ctx.strokeStyle = colors.planned;
+    ctx.strokeStyle = colors.rim;
     rows.forEach((row, rowIndex) => {
         ctx.fillText(row, 10, (rowIndex + 1) * cellSize);
     });
@@ -91,13 +93,21 @@ function drawMatrix() {
         ctx.fillText(col, (colIndex + 1) * cellSize, 20);
     });
 
+    let base_points = new Set<{x: number, y: number}>()
+
     // Draw circles for cells
-    matrixData.forEach(({ row, col, status}) => {
-        const rowIndex = rows.indexOf(row);
-        const colIndex = cols.indexOf(col);
-        if (rowIndex !== -1 && colIndex !== -1) {
-            const x = (colIndex + 1) * cellSize;
-            const y = (rowIndex + 1) * cellSize;
+    matrixData.forEach(({ row, col, layer, status}) => {
+        const rowIndex: number = rows.indexOf(row);
+        const colIndex: number = cols.indexOf(col);
+        const layerIndex: number = layers.indexOf(layer);
+        if (rowIndex !== -1 && colIndex !== -1 && layerIndex != -1) {
+            const layer_offset = layerIndex * layerShiftSize
+            let x = (colIndex + 1) * cellSize;
+            let y = (rowIndex + 1) * cellSize;
+            base_points.add({x: x, y: y});
+            x += layer_offset;
+            y += layer_offset;
+            console.log("drawing circle at: ", x, y);
             ctx.beginPath();
             ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
             ctx.lineWidth = 2;
@@ -105,6 +115,14 @@ function drawMatrix() {
             ctx.fill();
             ctx.stroke();
         }
+    });
+    const max_layer_offset = layers.length * layerShiftSize; 
+    base_points.forEach(({x, y}) => {
+        const base_point = 
+        ctx.beginPath();
+        ctx.moveTo(x, y-2*circleRadius);
+        ctx.lineTo(x+max_layer_offset, y-2*circleRadius+max_layer_offset);
+        ctx.stroke();
     });
 }
 
