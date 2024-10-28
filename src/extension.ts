@@ -4,7 +4,7 @@ import * as path from 'path';
 
 export function activate(context: vscode.ExtensionContext) {
     const session_name: string = "stuffs";
-    const disposable = vscode.commands.registerCommand('extension.showWebview', () => {
+    const disposable = vscode.commands.registerCommand('testSessionMonitor.openMonitor', () => {
         const panel = vscode.window.createWebviewPanel(
             'testMonitor',
             `Test Monitor: ${session_name}`,
