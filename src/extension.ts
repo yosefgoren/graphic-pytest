@@ -37,11 +37,13 @@ export function activate(context: vscode.ExtensionContext) {
             const summaryContent = fs.readFileSync(summaryPath, 'utf8');
             const summaryData = JSON.parse(summaryContent);
 
-            const matrixData: { row: string, col: string, status: string }[] = [];
+            const matrixData: { row: string, col: string, layer: string, status: string }[] = [];
             for (const row in summaryData) {
                 for (const col in summaryData[row]) {
-                    const status = summaryData[row][col];
-                    matrixData.push({ row, col, status });
+                    for (const layer in summaryData[row][col]) {
+                        const status = summaryData[row][col][layer];
+                        matrixData.push({ row, col, layer, status });
+                    }
                 }
             }
             return matrixData;

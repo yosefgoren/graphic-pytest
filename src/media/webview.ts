@@ -20,9 +20,10 @@ if (try_ctx == null) {
 const ctx = try_ctx as CanvasRenderingContext2D;
 const cellSize = 80;
 const circleRadius = 20;
-let matrixData: { row: string, col: string, status: string }[] = [];
+let matrixData: { row: string, col: string, layer: string, status: string }[] = [];
 let rows: string[] = [];
 let cols: string[] = [];
+let layers: string[] = [];
 
 const DEFAULT_MATRIX_HEAD = "Empty Matrix." as string;
 
@@ -31,6 +32,7 @@ function clearMatrix() {
     matrixData = [];
     rows = [];
     cols = [];
+    layers = [];
     session_status.innerText = DEFAULT_MATRIX_HEAD;
 
     drawMatrix();
@@ -48,8 +50,24 @@ class ColorSettings {
     public text = getCssConfigProperty('activityBarBadge.background');
 }
 
+function count(ls: boolean[]): number {
+    let res = 0;
+    ls.forEach((elem) => {
+        res += elem ? 1 : 0;
+    });
+    return res;
+}
+
 function updateSessionStatus() {
-    session_status.innerText = "70%";
+    const planned: number =  count(matrixData.map((elem) => elem.status == "planned"));
+    const passed: number =  count(matrixData.map((elem) => elem.status == "passed"));
+    const failed: number =  count(matrixData.map((elem) => elem.status == "failed"));
+    const skipped: number =  count(matrixData.map((elem) => elem.status == "skipped"));
+    
+    const completed = passed+failed+skipped;
+    const total = completed+planned;
+
+    session_status.innerText = `Completed: ${completed}/${total}, Passed: ${passed}, Failed: ${failed}, Skipped: ${skipped}`;
 }
 
 // Function to draw the matrix grid based on matrixData
@@ -59,6 +77,7 @@ function drawMatrix() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     rows = [...new Set(matrixData.map(d => d.row))];
     cols = [...new Set(matrixData.map(d => d.col))];
+    layers = [...new Set(matrixData.map(d => d.layer))];
 
     // Draw row and column labels
     ctx.font = 'bolder 14px Arial';
