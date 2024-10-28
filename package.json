@@ -13,8 +13,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "extension.showWebview",
-        "title": "Show Simple Webview"
+        "command": "testSessionMonitor.openMonitor",
+        "title": "Open Test Session Monitor"
       }
     ]
   },

@@ -1,11 +1,13 @@
 {
     "compilerOptions": {
         "target": "es6",
-        "module": "commonjs",
+        "module": "es6",  // Change this to "es6" or another appropriate module system
         "outDir": "../../out/media",
         "strict": true,
         "esModuleInterop": true,
-        "lib": ["dom", "es6"]  // Only include DOM and ES6, no Node
+        "lib": ["dom", "es6"],
+        "skipLibCheck": true  // This skips type checking of declaration files
     },
-    "include": ["./**/*.ts"]
+    "include": ["./**/*.ts"],
+    "exclude": ["node_modules"]  // Ensure node_modules are excluded
 }
