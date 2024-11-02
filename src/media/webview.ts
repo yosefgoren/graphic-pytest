@@ -116,12 +116,13 @@ function drawMatrix() {
             ctx.stroke();
         }
     });
-    const max_layer_offset = layers.length * layerShiftSize; 
+    const max_layer_offset = (layers.length-1) * layerShiftSize; 
+    const cursor_offset = circleRadius/Math.sqrt(2);
     base_points.forEach(({x, y}) => {
         const base_point = 
         ctx.beginPath();
-        ctx.moveTo(x, y-2*circleRadius);
-        ctx.lineTo(x+max_layer_offset, y-2*circleRadius+max_layer_offset);
+        ctx.moveTo(x+cursor_offset, y-cursor_offset);
+        ctx.lineTo(x+max_layer_offset+cursor_offset, y+max_layer_offset-cursor_offset);
         ctx.stroke();
     });
 }
