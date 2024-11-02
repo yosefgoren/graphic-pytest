@@ -18,9 +18,8 @@ if (try_ctx == null) {
     throw Error("unable to get canvas context.");
 }
 const ctx = try_ctx as CanvasRenderingContext2D;
-const cellSize = 80;
 const layerShiftSize = 10;
-const circleRadius = 20;
+const circleRadius = 15;
 let matrixData: { row: string, col: string, layer: string, status: string }[] = [];
 let rows: string[] = [];
 let cols: string[] = [];
@@ -72,6 +71,121 @@ function updateSessionStatus() {
     session_status.innerText = `Completed: ${completed}/${total}, Passed: ${passed}, Failed: ${failed}, Skipped: ${skipped}`;
 }
 
+function getTextHeight(ctx: CanvasRenderingContext2D, text: string): number {
+    // Measure the width of text
+    const metrics = ctx.measureText(text);
+
+    // Estimated text height based on font size. Adjust if necessary.
+    const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + 2;
+
+    return Math.round(textHeight*1.2);
+}
+
+class Edges {
+    public right: number;
+    public left: number;
+    public top: number;
+    public bottom: number;
+
+    constructor(right: number, left: number, top: number, bottom: number) {
+        this.right = right;
+        this.left = left;
+        this.top = top;
+        this.bottom = bottom;
+    }
+
+    public update(x: number, y: number, width: number, actualHeight: number): void {
+        this.left = Math.min(this.left, x);
+        this.right = Math.max(this.right, x + width);
+        this.top = Math.min(this.top, y - actualHeight);
+        this.bottom = Math.max(this.bottom, y);
+    }
+
+    /**
+     * Combines two Edges objects by finding the minimum and maximum boundaries.
+     * @param edges1 The first Edges object.
+     * @param edges2 The second Edges object.
+     * @returns A new Edges object representing the combined boundaries of edges1 and edges2.
+     */
+    public static combine(edges1: Edges, edges2: Edges): Edges {
+        const combined = new Edges(0, 0, 0, 0);
+        combined.left = Math.min(edges1.left, edges2.left);
+        combined.right = Math.max(edges1.right, edges2.right);
+        combined.top = Math.min(edges1.top, edges2.top);
+        combined.bottom = Math.max(edges1.bottom, edges2.bottom);
+        return combined;
+    }
+}
+
+/**
+ * Wraps a canvas 2D context and used to write text, such that the edges of the written text can be easily tracked.
+ * After the first text insertion, the edges will store the appropriate edge values, with respect to all of the text written using this object.
+ */
+class TextMaximizer {
+    public ctx: CanvasRenderingContext2D;
+    public base_x: number;
+    public base_y: number;
+    public edges: Edges;
+
+    constructor(context: CanvasRenderingContext2D, base_x: number = 0, base_y: number = 0) {
+        this.ctx = context;
+        this.base_x = base_x;
+        this.base_y = base_y;
+        this.edges = new Edges(base_x, base_x, base_y, base_y);
+    }
+
+    public fillText(text: string, x: number, y: number, maxWidth?: number): void {
+        const metrics = this.ctx.measureText(text);
+
+        // Calculate width and height based on text metrics
+        const width = metrics.width;
+        const actualHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+
+        x += this.base_x;
+        y += this.base_y;
+
+        // Update edges
+        this.edges.update(x, y, width, actualHeight);
+
+        // Draw the text on the canvas
+        this.ctx.fillText(text, x, y, maxWidth);
+    }
+
+    /**
+     * Combines the edges of this TextMaximizer with another TextMaximizer.
+     * @param other Another TextMaximizer instance.
+     */
+    public combineEdges(other: TextMaximizer): TextMaximizer {
+        let res = new TextMaximizer(this.ctx);
+        res.edges = Edges.combine(this.edges, other.edges);
+        return res;
+    }
+}
+
+let minCellSize: number = 0;
+
+function drawCircle(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number = 5, color: string | CanvasGradient | CanvasPattern = "red"): void {
+    const oldStyle = ctx.fillStyle;
+    const oldWidth = ctx.lineWidth;
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.lineWidth = 2;
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = oldStyle;
+    ctx.lineWidth = oldWidth;
+}
+
+function drawEdges(ctx: CanvasRenderingContext2D, e: Edges): void {
+    drawCircle(ctx, e.right, e.bottom);
+    drawCircle(ctx, e.left, e.bottom);
+    drawCircle(ctx, e.right, e.top);
+    drawCircle(ctx, e.left, e.top);
+}
+
 // Function to draw the matrix grid based on matrixData
 function drawMatrix() {
     updateSessionStatus();
@@ -80,18 +194,48 @@ function drawMatrix() {
     rows = [...new Set(matrixData.map(d => d.row))];
     cols = [...new Set(matrixData.map(d => d.col))];
     layers = [...new Set(matrixData.map(d => d.layer))];
+    
+    let row_start_positions: number[] = []
+    let col_start_positions: number[] = []
 
-    // Draw row and column labels
-    ctx.font = 'bolder 14px Arial';
+    ctx.font = 'bolder 20px Arial';
+    
+    minCellSize = (layers.length+1)*circleRadius;
+    const text_height_dist = getTextHeight(ctx, "a")
+    const base_offset = text_height_dist+2
+    const row_col_names_padding = text_height_dist;
     const colors = new ColorSettings();
+    
     ctx.fillStyle = colors.text;
     ctx.strokeStyle = colors.rim;
+
+    
+    // Draw dimention labels for depth, height, length
+    let layer_names = new TextMaximizer(ctx, base_offset, base_offset);
+    layers.forEach((layer, layerIndex) => {
+        layer_names.fillText(layer, layerIndex*text_height_dist, layerIndex*text_height_dist)
+    });
+    // drawEdges(ctx, layer_names.edges);
+
+    let row_names = new TextMaximizer(ctx, base_offset, layer_names.edges.bottom+text_height_dist+row_col_names_padding);
+    let next_row_start: number = 0;
     rows.forEach((row, rowIndex) => {
-        ctx.fillText(row, 10, (rowIndex + 1) * cellSize);
+        row_names.fillText(row, 0, next_row_start);
+        row_start_positions.push(next_row_start);
+        next_row_start = Math.max(next_row_start + minCellSize, row_names.edges.bottom-row_names.edges.top + row_col_names_padding);
     });
+    row_start_positions.push(next_row_start);
+    // drawEdges(ctx, row_names.edges);
+
+    let column_names = new TextMaximizer(ctx, Math.max(layer_names.edges.right, row_names.edges.right)+row_col_names_padding, base_offset);
+    let next_col_start: number = 0;
     cols.forEach((col, colIndex) => {
-        ctx.fillText(col, (colIndex + 1) * cellSize, 20);
+        column_names.fillText(col, next_col_start, 0);
+        col_start_positions.push(next_col_start);
+        next_col_start = Math.max(next_col_start + minCellSize, column_names.edges.right-column_names.edges.left + row_col_names_padding);
     });
+    col_start_positions.push(next_col_start);
+    // drawEdges(ctx, column_names.edges);
 
     let base_points = new Set<{x: number, y: number}>()
 
@@ -100,20 +244,19 @@ function drawMatrix() {
         const rowIndex: number = rows.indexOf(row);
         const colIndex: number = cols.indexOf(col);
         const layerIndex: number = layers.indexOf(layer);
+        
+        const base_x = circleRadius + Edges.combine(layer_names.edges, row_names.edges).right;
+        const base_y = circleRadius + Edges.combine(layer_names.edges, column_names.edges).bottom;
+
         if (rowIndex !== -1 && colIndex !== -1 && layerIndex != -1) {
             const layer_offset = layerIndex * layerShiftSize
-            let x = (colIndex + 1) * cellSize;
-            let y = (rowIndex + 1) * cellSize;
+            let x = base_x + (col_start_positions[colIndex]+col_start_positions[colIndex+1])/2 - layerShiftSize*layers.length/2;
+            let y = base_y + (row_start_positions[rowIndex]+row_start_positions[rowIndex+1])/2 - layerShiftSize*layers.length/2;
             base_points.add({x: x, y: y});
             x += layer_offset;
             y += layer_offset;
             console.log("drawing circle at: ", x, y);
-            ctx.beginPath();
-            ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
-            ctx.lineWidth = 2;
-            ctx.fillStyle = colors[status as keyof ColorSettings] || colors.planned;
-            ctx.fill();
-            ctx.stroke();
+            drawCircle(ctx, x, y, circleRadius,colors[status as keyof ColorSettings] || colors.planned);
         }
     });
     const max_layer_offset = (layers.length-1) * layerShiftSize; 
@@ -128,8 +271,8 @@ function drawMatrix() {
 }
 
 function positionToRowCol(off_x: number, off_y: number): {row: string, col: string} | null {
-    const colIndex = Math.floor(off_x / cellSize) - 1;
-    const rowIndex = Math.floor(off_y / cellSize) - 1;
+    const colIndex = Math.floor(off_x / minCellSize) - 1;
+    const rowIndex = Math.floor(off_y / minCellSize) - 1;
     if (colIndex >= 0 && rowIndex >= 0 && rowIndex < rows.length && colIndex < cols.length) {
         return {
             row: rows[rowIndex],
